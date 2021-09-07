@@ -1,0 +1,263 @@
+#!/bin/bash
+
+installArtillery () {
+    echo "\r"
+    echo "Installing Artillery ..."
+    echo "\r"
+    
+    artilleryFolder=/var/artillery
+    artilleryFileConfig=$artilleryFolder/config
+    artilleryFileSetup=$artilleryFolder/setup.py
+    
+    if [ ! -f $artilleryFileConfig ]
+    then        
+        apt-get update && apt-get install -y python git
+    
+        git clone https://github.com/BinaryDefense/artillery.git
+        cd artillery && python setup.py
+        
+        # Conf artillery
+        
+        echo "\r"
+        echo "Updating config ...."
+        echo "\r"
+        
+        sed -i '/^MONITOR_FOLDERS=.*/c\MONITOR_FOLDERS="/etc/"' $artilleryFileConfig
+        sed -i '/^SSH_DEFAULT_PORT_CHECK=.*/c\SSH_DEFAULT_PORT_CHECK="ON"' $artilleryFileConfig
+        sed -i '/^HONEYPOT_BAN=.*/c\HONEYPOT_BAN="ON"' $artilleryFileConfig
+        sed -i '/^WHITELIST_IP=.*/c\WHITELIST_IP="127.0.0.1,localhost,92.154.2.203,91.121.154.18"' $artilleryFileConfig
+        sed -i '/^PORTS=.*/c\PORTS="25,53,110,445,1337,1433,1723,3389,5800,5900,44443,16993"' $artilleryFileConfig
+        sed -i '/^TCPPORTS=.*/c\TCPPORTS="25,53,110,445,1337,1433,1723,3389,5800,5900,44443,16993"' $artilleryFileConfig
+        sed -i '/^UDPPORTS=.*/c\UDPPORTS=""' $artilleryFileConfig
+        sed -i '/^SSH_BRUTE_MONITOR=.*/c\SSH_BRUTE_MONITOR="ON"' $artilleryFileConfig
+        sed -i '/^SSH_BRUTE_ATTEMPTS=.*/c\SSH_BRUTE_ATTEMPTS="25"' $artilleryFileConfig
+        sed -i '/^AUTO_UPDATE=.*/c\AUTO_UPDATE="OFF"' $artilleryFileConfig
+        sed -i '/^ANTI_DOS=.*/c\ANTI_DOS="ON"' $artilleryFileConfig
+        sed -i '/^ANTI_DOS_PORTS=.*/c\ANTI_DOS_PORTS="22,80,443"' $artilleryFileConfig
+        sed -i '/^SYSLOG_TYPE=.*/c\SYSLOG_TYPE="FILE"' $artilleryFileConfig
+        sed -i '/^CONSOLE_LOGGING=.*/c\CONSOLE_LOGGING="OFF"' $artilleryFileConfig
+        sed -i '/^RECYCLE_IPS=.*/c\RECYCLE_IPS="ON"' $artilleryFileConfig
+        sed -i '/^THREAT_INTELLIGENCE_FEED=.*/c\THREAT_INTELLIGENCE_FEED="OFF"' $artilleryFileConfig
+        sed -i '/^SOURCE_FEEDS=.*/c\SOURCE_FEEDS="OFF"' $artilleryFileConfig
+        
+        sed -i '/^exit 0.*/c\' /etc/rc.local
+        echo sleep 3 >> /etc/rc.local
+        echo service artillery restart >> /etc/rc.local
+        echo exit 0 >> /etc/rc.local
+        
+        sleep 3
+        service artillery restart
+        sleep 1
+        
+        clear
+        echo "\r"
+        echo "Artillery successfully installed !!!!"
+        echo "\r"
+    else
+        echo "Artillery is already installed on this machine !"
+        while true; do
+            read -p "Would you uninstall it ? (y/n)" yn
+            case $yn in
+                [Yy]* ) 
+                        service artillery stop
+                        iptables --flush
+                        python $artilleryFileSetup
+                        
+                        sed -i '/^sleep 3*/c\' /etc/rc.local
+                        sed -i '/^service artillery restart*/c\' /etc/rc.local
+                        
+                        clear
+                        echo "\r"
+                        echo "Artillery successfully uninstalled !!!!"
+                        echo "\r"
+                        
+                        break;;
+                [Nn]* ) 
+                        break;;
+                * ) echo "Please answer yes or no";;
+            esac
+        done
+    fi
+}
+
+installEssentialsTools () {
+    echo "\r"
+    echo "Installing Essentials Tools ..."
+    echo "\r"
+    
+    apt-get update
+    apt-get -y install apt-transport-https lsb-release ca-certificates htop ntp curl python git lnav dnsutils bc expect
+    apt-get update
+    
+    clear
+    echo "\r"
+    echo "Essentials Tools successfully installed !!!!"
+    echo "\r"
+}
+
+
+fullInstallProcess () {
+    step=$1
+    auto=$2
+    
+    case "$step" in
+      "Artillery")
+            if [ "$auto" = "yes" ]
+            then
+                echo "\r"
+                echo "Step #5 - Installing Artillery"
+                echo "\r"
+            fi
+            
+            installArtillery
+
+        break
+        ;;
+        
+      "Tools")
+            if [ "$auto" = "yes" ]
+            then
+                echo "\r"
+                echo "Step #1 - Installing Essentials Tools (htop, ntp, python ...)"
+                echo "\r"
+            fi
+            
+            installEssentialsTools
+
+        break
+        ;;
+
+      *)
+        echo "OK"
+        break
+        ;;
+    esac
+
+}
+
+clear
+
+echo "##########################################################"
+echo "#                                                        #"
+echo "#     Script Debian 10 Jessie - Server fresh install      #"
+echo "#                                                        #"
+echo "##########################################################"
+echo "\r"
+
+while true; do
+    read -p "Full install / Component install ? (f/c)" yn
+    case $yn in
+        [Ff]* ) 
+                fullInstall=1
+                break;;
+        [Cc]* ) 
+                fullInstall=0
+                break;;
+        * ) echo "Please answer f or c.";;
+    esac
+done
+
+clear
+
+if [ $fullInstall -eq 1 ]
+then
+    
+    echo "##########################################################"
+    echo "#                                                        #"
+    echo "#                 Full installation                      #"
+    echo "#                                                        #"
+    echo "##########################################################"
+    
+    fullInstallProcess "Tools" "yes"
+
+    fullInstallProcess "Artillery" "yes"
+    
+    clear
+    
+    echo "\r"
+    echo "##########################################################"
+    echo "#                                                        #"
+    echo "#                 Installation completed                 #"
+    echo "#                                                        #"
+    echo "##########################################################"
+
+    echo "\r"
+    echo "List of installed and configured modules :"
+    echo "\r"
+    echo "  - Artillery"
+    echo "  - Essentials Tools (htop, ntp, python ...)"
+    echo "\r"
+    echo "\r"
+    
+    echo "After this fresh install, we recommend reboot the system"
+    while true; do
+        read -p "Reboot system now ? (y/n)" yn
+        case $yn in
+            [Yy]* ) 
+                    reboot
+                    break;;
+            [Nn]* ) 
+                    break;;
+            * ) echo "Please answer yes or no";;
+        esac
+    done
+
+else
+
+    echo "##########################################################"
+    echo "#                                                        #"
+    echo "#                 Component installation                 #"
+    echo "#                                                        #"
+    echo "##########################################################"
+
+    echo "\r"
+    echo "List of modules to install :"
+    echo "\r"
+    echo "  [1] Essentials Tools (htop, ntp, python ...)"
+    echo "  [2] Artillery"
+    echo "\r"
+    read -p "Please choose a component ?" rowComponent
+
+    case "$rowComponent" in
+      "1")
+      
+            clear
+            
+            echo "##########################################################"
+            echo "#                                                        #"
+            echo "#         Essentials Tools (htop, ntp, python .)         #"
+            echo "#                                                        #"
+            echo "##########################################################"
+
+            echo "\r"
+            
+            fullInstallProcess "Tools" "no"
+
+        break
+        ;;
+
+      "2")
+      
+            clear
+
+            echo "##########################################################"
+            echo "#                                                        #"
+            echo "#                      Artillery                         #"
+            echo "#                                                        #"
+            echo "##########################################################"
+            
+            echo "\r"
+            
+            fullInstallProcess "Artillery" "no"
+
+        break
+        ;;
+
+
+      *)
+        echo "No component chosen !"
+        break
+        ;;
+    esac
+
+fi
